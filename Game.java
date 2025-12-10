@@ -1,23 +1,25 @@
-
 import java.awt.*;
 import java.awt.event.*;
-
 import javax.swing.*;
 import java.util.ArrayList;
-
-
-
 
 
 public class Game extends JPanel implements KeyListener, ActionListener {
    private ArrayList<PowerUp> powerUps = new ArrayList<>();
    private boolean play = false;
    private int score = 0;
+   private int level = 1;
+   //Buff flags
+   private boolean bigPaddleActive = false;
 
+
+   // Buff timer duration (ms)
+   private int BUFF_DURATION = 5000; // 5 seconds
    private int Bricks = 21;
-
+   private int paddleWidth = 100; // default
    private Timer time;
    private int delay = 8;
+
 
    private int PlayerX = 310;
 
@@ -28,13 +30,13 @@ public class Game extends JPanel implements KeyListener, ActionListener {
    //Ball Direction
    private int BallXdir = -1;
    private int BallYdir = -2;
-
-
+   
+   private Timer bigPaddleTimer;
 
    private mapGen map;
 
    public Game(){
-      map = new mapGen(3, 7);
+      map = new mapGen(3, 7, level);
       addKeyListener(this);
       setFocusable(true);
       setFocusTraversalKeysEnabled(false);
@@ -60,11 +62,11 @@ public class Game extends JPanel implements KeyListener, ActionListener {
       // Score
       gameObject.setColor(Color.white);
       gameObject.setFont(new Font( "arial", Font.BOLD, 25));
-      gameObject.drawString("Points:"+score, 20, 30);
+      gameObject.drawString("Points: " + score, 20, 30);
 
       //Paddle
       gameObject.setColor(Color.green);
-      gameObject.fillRect(PlayerX, 550, 100, 8);
+      gameObject.fillRect(PlayerX, 550, paddleWidth, 8);
 
       //Ball
       gameObject.setColor(Color.red);
@@ -89,7 +91,7 @@ public class Game extends JPanel implements KeyListener, ActionListener {
     public void actionPerformed(ActionEvent e) {
         time.start();
         if(play){
-            if(new Rectangle(BallX, BallY, 20, 20).intersects(new Rectangle(PlayerX, 550, 100, 8))){
+            if(new Rectangle(BallX, BallY, 20, 20).intersects(new Rectangle(PlayerX, 550, paddleWidth, 8))){
                BallY = 550 - 20;//fix for the ball getting stuck in paddle
                BallYdir = -BallYdir;
             }
@@ -112,24 +114,25 @@ public class Game extends JPanel implements KeyListener, ActionListener {
 	         				map.setBlockValue(0, i, j);
 	         				Bricks--;
 	         				score += 1;
-                     // 20% chance to drop a power-up
-                     if (Math.random() < 0.20) {
 
-                           int dropX = blockX + blockWidth / 2;
-                           int dropY = blockY;
+                            // 20% chance to drop a power-up
+                            if (Math.random() < 0.20) {
 
-                           int type = (int)(Math.random() * 2); 
+                                int dropX = blockX + blockWidth / 2;
+                                int dropY = blockY;
+
+                                int type = (int)(Math.random() * 2); 
     
 
-                           powerUps.add(new PowerUp(dropX, dropY, type));
-                        }
-	         				if(BallX + 19 <= blockRect.x || BallX + 1 >= blockRect.x + blockRect.width){
-	         					BallXdir = -BallXdir;
-	         				}else{
-	         					BallYdir = -BallYdir;
-	         				}
-                     
-	         				break A;
+                                powerUps.add(new PowerUp(dropX, dropY, type));
+                            }   
+	         			    if(BallX + 19 <= blockRect.x || BallX + 1 >= blockRect.x + blockRect.width){
+	         				    BallXdir = -BallXdir;
+	         			    }else{
+	         				    BallYdir = -BallYdir;
+	         			    }
+	         			    break A;
+
 	         			}
 	         		}	
 	         	}
@@ -147,35 +150,38 @@ public class Game extends JPanel implements KeyListener, ActionListener {
             }
 
             if (Bricks <= 0) {
-            map = new mapGen(3, 7);
+            level++;
+            map = new mapGen(3, 7, level);
             Bricks = 3 * 7;
-            //map reset when all brick get destroyed(endless)
+            //map reset when all brick get destroyed
             
-               }
+            }
 
          }
          // Move power-ups
-for (int i = 0; i < powerUps.size(); i++) {
-    PowerUp p = powerUps.get(i);
-    p.update();
-
-    // If power-up touches paddle
-    if (new Rectangle(p.x, p.y, p.width, p.height).intersects(
-            new Rectangle(PlayerX, 550, 100, 8))) {
-
-        applyPowerUp(p.type);
-        p.active = false;
+    for (int i = 0; i < powerUps.size(); i++) {
+        PowerUp p = powerUps.get(i);
+        p.update();
+    
+        // If power-up touches paddle
+        if (new Rectangle(p.x, p.y, p.width, p.height).intersects(
+                new Rectangle(PlayerX, 550, 100, 8))) {
+                
+            applyPowerUp(p.type);
+            p.active = false;
+        }
+    
+        // Remove if off-screen
+        if (p.y > 600 || !p.active) {
+            powerUps.remove(i);
+            i--;
+        }
     }
-
-    // Remove if off-screen
-    if (p.y > 600 || !p.active) {
-        powerUps.remove(i);
-        i--;
-    }
-}
          
         repaint();
    }
+
+
    public void resetGame() {
     play = false;
 
@@ -188,13 +194,13 @@ for (int i = 0; i < powerUps.size(); i++) {
 
     score = 0;
 
-    map = new mapGen(3, 7);
+    map = new mapGen(3, 7, level);
     Bricks = 3 * 7; // automatically set to 21
 
     repaint();
 }
 
- @Override
+    @Override
     public void keyPressed(KeyEvent e) {
         if(e.getKeyCode() == KeyEvent.VK_RIGHT){
             if(PlayerX >= 600){
@@ -224,14 +230,16 @@ for (int i = 0; i < powerUps.size(); i++) {
                PlayerX = 310;
                score = 0;
                Bricks = 21;
-               map = new mapGen(3, 7);
+               map = new mapGen(3, 7, level);
                repaint();
             }
         }
+
         if(e.getKeyCode() == KeyEvent.VK_ESCAPE){
-            //Return to menu
+            System.exit(0);
         }
     }
+
     //Player Movements
     public void playerRight(){
       play = true;
@@ -248,31 +256,38 @@ for (int i = 0; i < powerUps.size(); i++) {
     public void keyReleased(KeyEvent e) {}
 
     public void applyPowerUp(int type) {
-    
+
         switch (type) {
-            case 0:
-                // BIGGER PADDLE
-                // Just draw a bigger one
-                // Or add PaddleWidth variable for clean code
-                System.out.println("Bigger paddle power-up!");
-                PlayerX -= 20; // center it
-                // Increase paddle width in drawing code
+
+            case 0: // BIG PADDLE
+                activateBigPaddle();
                 break;
-    
-            case 1:
-                // SLOWER BALL
-                System.out.println("Slower ball power-up!");
-                if (BallXdir > 0) BallXdir--;
-                else BallXdir++;
-    
-                if (BallYdir > 0) BallYdir--;
-                else BallYdir++;
-                break;
-    
-            case 2:
-                // EXTRA POINTS
+
+            case 1: // EXTRA POINTS
                 score += 5;
                 break;
+        }
+    }
+    private void activateBigPaddle() {
+
+        if (!bigPaddleActive) {
+
+
+            bigPaddleActive = true;
+
+            // Increase paddle size
+            paddleWidth = 150;   // <-- Change paddle to use paddleWidth
+
+            // Timer removes effect after duration
+            bigPaddleTimer = new Timer(BUFF_DURATION, e -> {
+
+
+                paddleWidth = 100; // restore original
+                bigPaddleActive = false;
+            });
+
+            bigPaddleTimer.setRepeats(false);
+            bigPaddleTimer.start();
         }
     }
 }
